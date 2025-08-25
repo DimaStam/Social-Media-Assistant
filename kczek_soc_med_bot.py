@@ -1,4 +1,4 @@
-import os
+import os, re
 import pytz
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
@@ -22,7 +22,7 @@ ig_id = os.getenv("IG_USER_ID")
 user_sessions = {}
 
 # === Funkcje AI ===
-async def generate_ai_content(image_path: str, note: str = None):
+async def generate_ai_content(image_path: str, note: str = None, prev_ai_data: dict = None, correction: str = None):
     prompt_image = f"""
 Jesteś specjalistą social media dla kawiarni.
 Twoje zadanie:
@@ -46,6 +46,14 @@ Wynik zwróć **w czystym JSON** w strukturze:
 """
     if note:
         prompt_image += f"\nDodatkowa uwaga od użytkownika: {note}"
+
+    if prev_ai_data and correction:
+        prompt_image += (
+            f"\nPoprzedni tekst AI:\nInstagram: {prev_ai_data.get('instagram_text','')}\n"
+            f"Facebook: {prev_ai_data.get('facebook_text','')}\n"
+            f"Użytkownik napisał poprawkę: \"{correction}\".\n"
+            "Zmień tylko wskazaną część tekstu, resztę pozostaw bez zmian. Zawsze uwzględnij poprzednią notatkę użytkownika."
+        )
 
     # Upload image to S3 and get public URL
     bucket_name = "kawiarnia-social-media-images"
@@ -124,8 +132,17 @@ async def handle_text_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # If user is at preview stage, treat as correction
     if session.get("stage") == "preview_shown":
         session["correction"] = note_text
-        session["note"] = note_text  # treat correction as new note
-        ai_data = await generate_ai_content(session["photo_path"], note_text)
+        # Always preserve the original note
+        prev_note = session.get("note")
+        prev_ai_data = session.get("ai_data")
+        # Regenerate only the corrected part, keep previous note
+        ai_data = await generate_ai_content(
+            session["photo_path"],
+            note=prev_note,
+            prev_ai_data=prev_ai_data,
+            correction=note_text
+        )
+        session["ai_data"] = ai_data
         post_texts = generate_post_text(ai_data)
         session["post_texts"] = post_texts
         user_sessions[user_id] = session
@@ -147,6 +164,7 @@ async def handle_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Najpierw wyślij zdjęcie.")
         return
     ai_data = await generate_ai_content(session["photo_path"], session.get("note"))
+    session["ai_data"] = ai_data
     post_texts = generate_post_text(ai_data)
     session["post_texts"] = post_texts
     session["stage"] = "preview_shown"
@@ -234,8 +252,8 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
-    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^zobacz$"), handle_preview))
-    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^gotowe$"), handle_ready))
+    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^zobacz$"), handle_preview, flags=re.IGNORECASE,))
+    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^gotowe$"), handle_ready, flags=re.IGNORECASE,))
     app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^(Tak|Nie)$"), handle_publish_decision))
     # All other text is either note or correction
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.Regex("^(zobacz|gotowe|Tak|Nie)$"), handle_text_note))

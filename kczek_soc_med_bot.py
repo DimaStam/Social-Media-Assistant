@@ -31,17 +31,16 @@ Twoje zadanie:
 3. Dodaj krótkie CTA na końcu (np. "Wpadaj dziś do 18:00!").
 4. Dodaj 5–8 hashtagów (PL/EN, bez znaków diakrytycznych). Najpierw lokalne (#kawa #kawiarnia #Wrocław), potem produktowe.
 5. Dodaj ALT-text (max 120 znaków, prosty opis zdjęcia).
-6. Zbuduj finalne posty:
-   - Instagram: opis + linia oddzielająca + hashtagi. Użyj 1–3 emoji.
-   - Facebook: pełne zdanie z caption + CTA (bez hashtagów).
+6. Zbuduj finalny post (jeden tekst, taki sam dla Facebook i Instagram):
+   - "post_text": opis + CTA (bez hashtagów)
+   - "hashtags": lista hashtagów
+   - "alt": ALT-text
 
 Wynik zwróć **w czystym JSON** w strukturze:
 {{
-  "caption": "...",
+  "post_text": "...",
   "hashtags": ["...", "..."],
-  "alt": "...",
-  "instagram_text": "...",
-  "facebook_text": "..."
+  "alt": "..."
 }}
 """
     if note:
@@ -49,8 +48,7 @@ Wynik zwróć **w czystym JSON** w strukturze:
 
     if prev_ai_data and correction:
         prompt_image += (
-            f"\nPoprzedni tekst AI:\nInstagram: {prev_ai_data.get('instagram_text','')}\n"
-            f"Facebook: {prev_ai_data.get('facebook_text','')}\n"
+            f"\nPoprzedni tekst AI:\nPost: {prev_ai_data.get('post_text','')}\n"
             f"Użytkownik napisał poprawkę: \"{correction}\".\n"
             "Zmień tylko wskazaną część tekstu, resztę pozostaw bez zmian. Zawsze uwzględnij poprzednią notatkę użytkownika."
         )
@@ -83,10 +81,12 @@ Wynik zwróć **w czystym JSON** w strukturze:
     return data
 
 def generate_post_text(ai_data):
-    # Use AI-generated post texts directly
+    hashtags = " ".join(ai_data.get("hashtags", []))
+    instagram_text = f"{ai_data.get('post_text', '')}\n———\n{hashtags}"
+    facebook_text = ai_data.get("post_text", "")
     return {
-        "instagram_text": ai_data.get("instagram_text", ""),
-        "facebook_text": ai_data.get("facebook_text", "")
+        "instagram_text": instagram_text,
+        "facebook_text": facebook_text
     }
 
 # === Image handler ===
@@ -145,7 +145,7 @@ async def handle_text_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
         session["post_texts"] = post_texts
         user_sessions[user_id] = session
         await update.message.reply_text(
-            f"Oto podgląd posta 👇\nInstagram: {post_texts['instagram_text']}\n\nFacebook: {post_texts['facebook_text']}\nChcesz coś zmienić? Dodaj poprawkę w wiadomości albo napisz 'gotowe', jeśli jest ok."
+            f"Oto podgląd posta 👇\nInstagram: {post_texts['instagram_text']}\n\nFacebook: {post_texts['facebook_text']}\n\nChcesz coś zmienić? Dodaj poprawkę w wiadomości albo napisz 'gotowe', jeśli jest ok."
         )
     else:
         # If user adds a note before preview, regenerate preview with note
@@ -159,7 +159,7 @@ async def handle_text_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
         session["stage"] = "preview_shown"
         user_sessions[user_id] = session
         await update.message.reply_text(
-            f"Oto podgląd posta 👇\nInstagram: {post_texts['instagram_text']}\n\nFacebook: {post_texts['facebook_text']}\nChcesz coś zmienić? Dodaj poprawkę w wiadomości albo napisz 'gotowe', jeśli jest ok."
+            f"Oto podgląd posta 👇\nInstagram: {post_texts['instagram_text']}\n\nFacebook: {post_texts['facebook_text']}\n\nChcesz coś zmienić? Dodaj poprawkę w wiadomości albo napisz 'gotowe', jeśli jest ok."
         )
 
 async def handle_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -175,7 +175,7 @@ async def handle_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
     session["stage"] = "preview_shown"
     user_sessions[user_id] = session
     await update.message.reply_text(
-        f"Oto podgląd posta 👇\nInstagram: {post_texts['instagram_text']}\n\nFacebook: {post_texts['facebook_text']}\nChcesz coś zmienić? Dodaj poprawkę w wiadomości albo napisz 'gotowe', jeśli jest ok."
+        f"Oto podgląd posta 👇\nInstagram: {post_texts['instagram_text']}\n\nFacebook: {post_texts['facebook_text']}\n\nChcesz coś zmienić? Dodaj poprawkę w wiadomości albo napisz 'gotowe', jeśli jest ok."
     )
 
 async def handle_ready(update: Update, context: ContextTypes.DEFAULT_TYPE):

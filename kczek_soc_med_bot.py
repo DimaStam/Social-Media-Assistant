@@ -252,8 +252,8 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
-    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^zobacz$"), handle_preview, flags=re.IGNORECASE,))
-    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^gotowe$"), handle_ready, flags=re.IGNORECASE,))
+    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^zobacz$", flags=re.IGNORECASE), handle_preview))
+    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^gotowe$", flags=re.IGNORECASE), handle_ready))
     app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^(Tak|Nie)$"), handle_publish_decision))
     # All other text is either note or correction
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.Regex("^(zobacz|gotowe|Tak|Nie)$"), handle_text_note))

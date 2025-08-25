@@ -83,12 +83,11 @@ Wynik zwróć **w czystym JSON** w strukturze:
     return data
 
 def generate_post_text(ai_data):
-    caption = ai_data["caption"]
-    hashtags = ai_data["hashtags"]
-    hashtags_line = " ".join(hashtags[:10])
-    instagram_text = f"{caption}\n———\n{hashtags_line}"
-    facebook_text = instagram_text
-    return {"instagram_text": instagram_text, "facebook_text": facebook_text}
+    # Use AI-generated post texts directly
+    return {
+        "instagram_text": ai_data.get("instagram_text", ""),
+        "facebook_text": ai_data.get("facebook_text", "")
+    }
 
 # === Image handler ===
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -131,15 +130,14 @@ async def handle_text_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
     session = user_sessions.get(user_id, {})
     # If user is at preview stage, treat as correction
     if session.get("stage") == "preview_shown":
+        if "ai_data" not in session:
+            await update.message.reply_text("Najpierw wygeneruj podgląd posta ('zobacz').")
+            return
         session["correction"] = note_text
-        # Always preserve the original note
-        prev_note = session.get("note")
-        prev_ai_data = session.get("ai_data")
-        # Regenerate only the corrected part, keep previous note
         ai_data = await generate_ai_content(
             session["photo_path"],
-            note=prev_note,
-            prev_ai_data=prev_ai_data,
+            note=session.get("note"),
+            prev_ai_data=session.get("ai_data"),
             correction=note_text
         )
         session["ai_data"] = ai_data
@@ -150,11 +148,18 @@ async def handle_text_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Oto podgląd posta 👇\nInstagram: {post_texts['instagram_text']}\n\nFacebook: {post_texts['facebook_text']}\nChcesz coś zmienić? Dodaj poprawkę w wiadomości albo napisz 'gotowe', jeśli jest ok."
         )
     else:
+        # If user adds a note before preview, regenerate preview with note
         session["note"] = note_text
         session["stage"] = "note_added"
         user_sessions[user_id] = session
+        ai_data = await generate_ai_content(session["photo_path"], note=note_text)
+        session["ai_data"] = ai_data
+        post_texts = generate_post_text(ai_data)
+        session["post_texts"] = post_texts
+        session["stage"] = "preview_shown"
+        user_sessions[user_id] = session
         await update.message.reply_text(
-            "Notatka dodana. Napisz 'zobacz' aby wygenerować podgląd posta."
+            f"Oto podgląd posta 👇\nInstagram: {post_texts['instagram_text']}\n\nFacebook: {post_texts['facebook_text']}\nChcesz coś zmienić? Dodaj poprawkę w wiadomości albo napisz 'gotowe', jeśli jest ok."
         )
 
 async def handle_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -252,8 +257,8 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
-    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^zobacz$", flags=re.IGNORECASE), handle_preview))
-    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^gotowe$", flags=re.IGNORECASE), handle_ready))
+    app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"(?i)^zobacz$"), handle_preview))
+    app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"(?i)^gotowe$"), handle_ready))
     app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^(Tak|Nie)$"), handle_publish_decision))
     # All other text is either note or correction
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.Regex("^(zobacz|gotowe|Tak|Nie)$"), handle_text_note))

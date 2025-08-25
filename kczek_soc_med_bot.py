@@ -1,5 +1,4 @@
 import os, re
-import pytz
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from openai import OpenAI
@@ -18,6 +17,7 @@ fb_token = os.getenv("FB_PAGE_TOKEN")
 fb_id = os.getenv("FB_PAGE_ID")
 ig_token = os.getenv("IG_ACCESS_TOKEN")
 ig_id = os.getenv("IG_USER_ID")
+ALLOWED_TG_USERS = [int(uid) for uid in os.getenv("ALLOWED_TG_USERS", "").split(",") if uid]
 
 user_sessions = {}
 
@@ -91,6 +91,8 @@ def generate_post_text(ai_data):
 
 # === Image handler ===
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await restricted(update):
+        return
     user_id = update.message.from_user.id
     note = update.message.caption
     photo_file = await update.message.photo[-1].get_file()
@@ -106,6 +108,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await restricted(update):
+        return
     user_id = update.message.from_user.id
     voice = update.message.voice
     file = await context.bot.get_file(voice.file_id)
@@ -125,6 +129,8 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def handle_text_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await restricted(update):
+        return
     user_id = update.message.from_user.id
     note_text = update.message.text
     session = user_sessions.get(user_id, {})
@@ -249,7 +255,19 @@ def post_to_instagram(insta_access_token, insta_user_id, caption, image_url):
 
 # === Start bota ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    await update.message.reply_text(f"Twój ID to: {user_id}")
     await update.message.reply_text("Bot działa... wyślij zdjęcie!")
+
+def is_allowed(user_id: int) -> bool:
+    return user_id in ALLOWED_TG_USERS
+
+async def restricted(update: Update) -> bool:
+    user_id = update.message.from_user.id
+    if not is_allowed(user_id):
+        await update.message.reply_text("🚫 Nie masz dostępu do tego bota.")
+        return False
+    return True
 
 def main():
     print("Uruchamiam bota...")

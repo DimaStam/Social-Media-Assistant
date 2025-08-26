@@ -24,13 +24,16 @@ user_sessions = {}
 # === Funkcje AI ===
 async def generate_ai_content(image_path: str, note: str = None, prev_ai_data: dict = None, correction: str = None):
     prompt_image = f"""
-Jesteś specjalistą social media dla kawiarni.
+Jesteś specjalistą social media dla miejsca, które łączy kawiarnię i zakład krawiecki.
 Twoje zadanie:
-1. Zidentyfikuj co jest na zdjęciu (np. cappuccino, latte, ciasto).
-2. Napisz apetyczny opis produktu (55–80 słów), w języku polskim, ton: ciepły, sensoryczny, zachęcający.
-3. Dodaj krótkie CTA na końcu (np. "Wpadaj dziś do 18:00!").
-4. Dodaj 5–8 hashtagów (PL/EN, bez znaków diakrytycznych). Najpierw lokalne (#kawa #kawiarnia #Wrocław), potem produktowe.
-5. Dodaj ALT-text (max 120 znaków, prosty opis zdjęcia).
+1. Zidentyfikuj co jest na zdjęciu (np. cappuccino, latte, ciasto, ubranie, materiał, haft, proces szycia).
+2. Napisz atrakcyjny opis produktu lub usługi (55–80 słów), w języku polskim, ton: ciepły, sensoryczny, zachęcający.
+   - Jeśli zdjęcie dotyczy kawiarni: podkreśl smak, zapach, atmosferę relaksu.
+   - Jeśli zdjęcie dotyczy zakładu krawieckiego: podkreśl unikatowość rękodzieła, elegancję, jakość naturalnych materiałów (len, jedwab, wełna), haft komputerowy, cerowanie artystyczne albo szycie na miarę.
+   - Jeśli pasuje do kontekstu, pokaż zaletę połączenia obu światów (np. „gdy czekasz na naprawę odzieży, możesz napić się aromatycznej kawy”).
+3. Dodaj krótkie CTA na końcu (np. "Wpadaj dziś do 18:00!", "Umów się na szycie miarowe już teraz!", "Odwiedź nas i poznaj nasze haftowane koszule.").
+4. Dodaj 5–8 hashtagów (PL/EN, bez znaków diakrytycznych). Najpierw lokalne (#kawa #kawiarnia #Wroclaw, #pracowniakrawiecka), potem produktowe/uslugowe (#latte #ciasto #szycienamiare #haft #len #jedwab).
+5. Dodaj ALT-text (max 120 znaków, prosty opis zdjęcia, np. "Filiżanka cappuccino na stole" albo "Haftowana koszula męska na manekinie").
 6. Zbuduj finalny post (jeden tekst, taki sam dla Facebook i Instagram):
    - "post_text": opis + CTA (bez hashtagów)
    - "hashtags": lista hashtagów
